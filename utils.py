@@ -17,10 +17,10 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from utils import display_tasks
+from tabulate import tabulate  # For pretty table printing
 
 # File paths for storage
-DATA_DIR = Path.home() / '.vsz-clap'
+DATA_DIR = Path.home() / '.task-tracker'
 ACTIVE_TASKS_FILE = DATA_DIR / 'active.csv'
 COMPLETED_TASKS_FILE = DATA_DIR / 'completed.csv'
 
@@ -64,19 +64,34 @@ def write_tasks(file_path: Path, tasks: List[Dict[str, str]]) -> None:
     except Exception as e:
         print(f"Error writing tasks to {file_path}: {e}")
 
-# def display_tasks(tasks: List[Dict[str, str]]) -> None:
-#     """Display tasks in a formatted manner."""
-#     if not tasks:
-#         print("No tasks found.")
-#         return
+def display_tasks(tasks: List[Dict[str, str]]) -> None:
+    """Display tasks in a tabular format."""
+    if not tasks:
+        print("No tasks found.")
+        return
 
-#     print("\n------ TASKS ------")
-#     for task in tasks:
-#         print(f"ID: {task['id']}")
-#         print(f"Title: {task['title']}")
-#         print(f"State: {'Open' if task['state'] == 'O' else 'Completed'}")
-#         print(f"Note: {task['note']}")
-#         print("-------------------\n")
+    # Prepare table rows with formatted data
+    table_data = []
+    for task in tasks:
+        # Truncate note if it's too long for display
+        note = task['note']
+        if len(note) > 40:  # Limit note length in table view
+            note = note[:37] + "..."
+        
+        # Add row with formatted data
+        table_data.append([
+            task['id'],
+            task['title'],
+            'Open' if task['state'] == 'O' else 'Completed',
+            note
+        ])
+    
+    # Print table with headers
+    print("\n" + tabulate(
+        table_data,
+        headers=['ID', 'Title', 'State', 'Note'],
+        tablefmt='grid'
+    ))
 
 def create_task(title: str, note: str = "") -> None:
     """Create a new task."""
@@ -228,8 +243,34 @@ def list_tasks(show_completed: bool = False) -> None:
     file_path = COMPLETED_TASKS_FILE if show_completed else ACTIVE_TASKS_FILE
     tasks = read_tasks(file_path)
     
-    print(f"\n--- {'COMPLETED' if show_completed else 'ACTIVE'} TASKS ---")
+    print(f"\n{'COMPLETED' if show_completed else 'ACTIVE'} TASKS:")
     display_tasks(tasks)
+
+def show_task_details(task_id: str) -> None:
+    """Show all details of a specific task, including full notes."""
+    # Check active tasks first
+    active_tasks = read_tasks(ACTIVE_TASKS_FILE)
+    for task in active_tasks:
+        if task['id'] == task_id:
+            print("\nTASK DETAILS:")
+            print(f"ID: {task['id']}")
+            print(f"Title: {task['title']}")
+            print(f"State: {'Open' if task['state'] == 'O' else 'Completed'}")
+            print(f"Notes:\n{task['note']}" if task['note'] else "Notes: None")
+            return
+    
+    # Check completed tasks if not found
+    completed_tasks = read_tasks(COMPLETED_TASKS_FILE)
+    for task in completed_tasks:
+        if task['id'] == task_id:
+            print("\nTASK DETAILS:")
+            print(f"ID: {task['id']}")
+            print(f"Title: {task['title']}")
+            print(f"State: {'Open' if task['state'] == 'O' else 'Completed'}")
+            print(f"Notes:\n{task['note']}" if task['note'] else "Notes: None")
+            return
+    
+    print(f"No task found with ID: {task_id}")
 
 def main() -> None:
     """Main CLI entry point."""
@@ -268,6 +309,10 @@ def main() -> None:
     list_parser.add_argument("--completed", "-c", action="store_true", help="Show completed tasks")
     list_parser.add_argument("--all", "-a", action="store_true", help="Show all tasks")
     
+    # View task details command
+    view_parser = subparsers.add_parser("view", help="View detailed information about a task")
+    view_parser.add_argument("id", help="Task ID to view")
+    
     # Parse arguments
     args = parser.parse_args()
     
@@ -288,6 +333,8 @@ def main() -> None:
             list_tasks(True)
         else:
             list_tasks(args.completed)
+    elif args.command == "view":
+        show_task_details(args.id)
     else:
         parser.print_help()
         sys.exit(1)
