@@ -1,0 +1,1 @@
+TASK_FIELDS = ['id', 'title', 'state', 'note']

@@ -18,14 +18,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from utils import display_tasks
+from data import TASK_FIELDS
 
 # File paths for storage
 DATA_DIR = Path.home() / '.vsz-clap'
 ACTIVE_TASKS_FILE = DATA_DIR / 'active.csv'
 COMPLETED_TASKS_FILE = DATA_DIR / 'completed.csv'
-
-# Task field definitions
-TASK_FIELDS = ['id', 'title', 'state', 'note']
 
 def ensure_data_dir() -> None:
     """Ensure the data directory exists."""
@@ -63,20 +61,6 @@ def write_tasks(file_path: Path, tasks: List[Dict[str, str]]) -> None:
             writer.writerows(tasks)
     except Exception as e:
         print(f"Error writing tasks to {file_path}: {e}")
-
-# def display_tasks(tasks: List[Dict[str, str]]) -> None:
-#     """Display tasks in a formatted manner."""
-#     if not tasks:
-#         print("No tasks found.")
-#         return
-
-#     print("\n------ TASKS ------")
-#     for task in tasks:
-#         print(f"ID: {task['id']}")
-#         print(f"Title: {task['title']}")
-#         print(f"State: {'Open' if task['state'] == 'O' else 'Completed'}")
-#         print(f"Note: {task['note']}")
-#         print("-------------------\n")
 
 def create_task(title: str, note: str = "") -> None:
     """Create a new task."""
@@ -231,6 +215,17 @@ def list_tasks(show_completed: bool = False) -> None:
     print(f"\n--- {'COMPLETED' if show_completed else 'ACTIVE'} TASKS ---")
     display_tasks(tasks)
 
+def show_task(task_id: str) -> None:
+    """Show task details."""
+    file_path = ACTIVE_TASKS_FILE
+    tasks = read_tasks(file_path)
+    task = next((t for t in tasks if t.get("id") == task_id), None)
+
+    if task:
+        display_tasks([task])
+    else:
+        print(f"No active task found with ID: {task_id}")
+
 def main() -> None:
     """Main CLI entry point."""
     # Ensure data files exist
@@ -262,6 +257,10 @@ def main() -> None:
     note_parser = subparsers.add_parser("note", help="Add a note to a task")
     note_parser.add_argument("id", help="Task ID")
     note_parser.add_argument("text", help="Note text")
+
+    # Show task details
+    show_parser = subparsers.add_parser("show", help="Show task details")
+    show_parser.add_argument("id", help="Task ID")
     
     # List tasks command
     list_parser = subparsers.add_parser("ls", help="List tasks")
@@ -282,6 +281,8 @@ def main() -> None:
         complete_task(args.id)
     elif args.command == "note":
         add_note(args.id, args.text)
+    elif args.command == "show":
+        show_task(args.id)
     elif args.command == "ls":
         if args.all:
             list_tasks(False)
